@@ -34,30 +34,16 @@ import SkipPreviousIcon from '@material-ui/icons/SkipPrevious';
 import jsPDF from 'jspdf';
 import 'jspdf-autotable'
 // import NewWindow from 'react-new-window';
-import firebase from 'firebase'
-var firebaseConfig = {
-    apiKey: "AIzaSyAV1RFAEI358lpXv_7d81xb0KdRo4f-TEk",
-    authDomain: "tienda-aa5d3.firebaseapp.com",
-    databaseURL: "https://tienda-aa5d3.firebaseio.com",
-    projectId: "tienda-aa5d3",
-    storageBucket: "tienda-aa5d3.appspot.com",
-    messagingSenderId: "898170837567",
-    appId: "1:898170837567:web:346072753502ad054cf68a",
-    measurementId: "G-WX90RTSG4S"
-  };
-  // Initialize Firebase
-if (!firebase.apps.length) {
-    try {
-        firebase.initializeApp(firebaseConfig)
-    } catch (err) {
-        console.log(err)
-    }
-}
-// db = firebase.firestore();
-// firebase.initializeApp(firebaseConfig);
-let db=firebase.database()
 
 
+
+
+
+var PouchDB = require('pouchdb').default;
+var dbenventa = new PouchDB('http://localhost:5984/enventa');
+var dbinventario = new PouchDB('http://localhost:5984/inventario');
+// var dbfolios = new PouchDB('http://localhost:5984/folios');
+var dbVentas = new PouchDB('http://localhost:5984/ventas');
 
 var formatter = new Intl.NumberFormat('en-US', {
     style: 'currency',
@@ -131,6 +117,7 @@ class Venta extends React.Component {
         this._onKeyPress = this._onKeyPress.bind(this);
         this._onChange = this._onChange.bind(this);
         this.getAllenventa = this.getAllenventa.bind(this);
+        this.getAllinventario = this.getAllinventario.bind(this);
         this.getAllVentasDiarias = this.getAllVentasDiarias.bind(this);
 
 
@@ -183,40 +170,37 @@ class Venta extends React.Component {
 
 
 
+        this.getAllenventa().then(data => {
+
+            let array = Object.values(data);
+
+            this.setState({
+                enventa: array.reverse(),
+                disabled: false,
+                autofocus: true
+            });
 
 
-        let inventarioFB=db.ref().child("INVENTARIO")
-        inventarioFB.on('value', (snapshot) =>{
-            if(snapshot.val()==null){
-                // console.log("ES NULO")
-                this.setState({
-                    inventario: []
-                });
+        })
 
-            }else{
-                const data = snapshot.val();
-                // console.log(snapshot.val())
-                let array=Object.values(data)
-                console.log(array)
-                this.setState({
-                    inventario: array
-                });
+        this.getAllinventario().then(data => {
+            let array = Object.values(data);
+            this.setState({
+                inventario: array
+            });
 
-            }
-
-          });
+        })
 
 
         this.getAllVentasDiarias()
-        this.getAllenventa()
     }
 
     async borrarVenta(id, rev) {
         this.setState({
             showPass: true,
-            idBorrar: id
+            idBorrar: id,
+            revBorrar: rev
         })
-        console.log(id)
 
     }
 
@@ -379,121 +363,104 @@ class Venta extends React.Component {
     }
 
     async getAllVentasDiarias() {
-         let notes = {}
-        let ventasD=db.ref().child("VENTAS")
-        await ventasD.on('value',(snapshot)=>{
-            let mes = this.state.mes
-            let dia = this.state.dia
-            let anio = this.state.anio
-            let formatoId = anio.toString() + "-" + mes + "-" + dia;
-            // console.log(formatoId)
-            // let allNotes = await dbVentas.allDocs({ include_docs: true });
-            let ventasDiarias = []
-         
-            var array =[]
-            let data=snapshot.val()
-            array=Object.values(data)
-            console.log(array)
-            console.log(array)
-            array.map((ventaDiaria) => {
-                let string = ventaDiaria._id.substring(0, 10);
-                if (string === formatoId) {
-                    console.log("ES IGUAL");
-                    ventasDiarias.push(ventaDiaria);
-                    console.log(ventasDiarias)
-                }
-                else {
-                    console.log("NO ES IGUAL");
-                }
-            })
-            let sumaTotal = 0
-            let sumaTarjeta = 0
-            let sumaEfectivo = 0
-            let totalProductos = 0
-            let totalConsulta = 0
-            let totalProcedimientos = 0
-            let totalMedicamentos = 0
-    
-            ventasDiarias.map((venta) => {
-                sumaTotal = sumaTotal + parseFloat(venta.venta[0].total)
-                sumaEfectivo = sumaEfectivo + parseFloat(venta.venta[0].tipoPago.efectivo)
-                sumaTarjeta = sumaTarjeta + parseFloat(venta.venta[0].tipoPago.tarjeta.monto)
-                venta.venta[0].prod.map((producto) => {
-    
-                    if (producto.tipoProducto === "Procedimiento") {
-                        totalProcedimientos = totalProcedimientos + 1
-                    }
-                    if (producto.tipoProducto === "Consulta") {
-                        totalConsulta = totalConsulta + 1
-                    }
-                    if (producto.tipoProducto === "Medicamento") {
-                        totalMedicamentos = totalMedicamentos + 1
-                    }
-                })
-                totalProductos = totalConsulta + totalProcedimientos + totalMedicamentos
-    
-            })
-    
-    
-            this.setState({
-                totalTarjeta: sumaTarjeta,
-                totalEfectivo: sumaEfectivo,
-                totalProducto: totalProductos,
-                totalConsultas: totalConsulta,
-                totalProcedimientos: totalProcedimientos,
-                totalMedicamentos: totalMedicamentos,
-                sumaTotal: sumaTotal,
-                ventasDiarias: ventasDiarias
-            });
-    
-    
-            console.log(this.state.totalTarjeta)
+
+        let mes = this.state.mes
+        let dia = this.state.dia
+        let anio = this.state.anio
+        let formatoId = anio.toString() + "-" + mes + "-" + dia;
+        console.log(formatoId)
+        let allNotes = await dbVentas.allDocs({ include_docs: true });
+        let ventasDiarias = []
+        let notes = {}
+
+
+        await allNotes.rows.forEach(n => notes[n.id] = n.doc);
+        let array = Object.values(notes);
+
+
+        await array.map((ventaDiaria) => {
+            let string = ventaDiaria._id.substring(0, 10)
+            if (string === formatoId) {
+                // console.log("ES IGUAL")
+                ventasDiarias.push(ventaDiaria)
+            } else {
+                // console.log("NO ES IGUAL")
+            }
+
         })
-      
+        let sumaTotal = 0
+        let sumaTarjeta = 0
+        let sumaEfectivo = 0
+        let totalProductos = 0
+        let totalConsulta = 0
+        let totalProcedimientos = 0
+        let totalMedicamentos = 0
+
+        await ventasDiarias.map((venta) => {
+            sumaTotal = sumaTotal + parseFloat(venta.venta[0].total)
+            sumaEfectivo = sumaEfectivo + parseFloat(venta.venta[0].tipoPago.efectivo)
+            sumaTarjeta = sumaTarjeta + parseFloat(venta.venta[0].tipoPago.tarjeta.monto)
+            venta.venta[0].prod.map((producto) => {
+                // console.log(producto)
+
+                if (producto.tipoProducto === "Procedimiento") {
+                    totalProcedimientos = totalProcedimientos + 1
+                }
+                if (producto.tipoProducto === "Consulta") {
+                    totalConsulta = totalConsulta + 1
+                }
+                if (producto.tipoProducto === "Medicamento") {
+                    totalMedicamentos = totalMedicamentos + 1
+                }
+            })
+            totalProductos = totalConsulta + totalProcedimientos + totalMedicamentos
+
+        })
+
+
+        await this.setState({
+            totalTarjeta: sumaTarjeta,
+            totalEfectivo: sumaEfectivo,
+            totalProducto: totalProductos,
+            totalConsultas: totalConsulta,
+            totalProcedimientos: totalProcedimientos,
+            totalMedicamentos: totalMedicamentos,
+            sumaTotal: sumaTotal,
+            ventasDiarias: ventasDiarias
+        });
+
+
+
+        console.log(this.state.totalTarjeta)
 
         return notes;
     };
 
     async getAllenventa() {
+        let allNotes = await dbenventa.allDocs({ include_docs: true });
+        let notes = {}
+        let suma = 0
 
-        let enVenta=db.ref().child("enVenta")
-        enVenta.on('value', (snapshot) =>{
-            if(snapshot.val()==null){
-                this.setState({
-                    suma: 0,
-                    enventa: [],
-                    disabled: false,
-                    autofocus: true
-                });
+        allNotes.rows.forEach(n => notes[n.id] = n.doc);
+        let array = Object.values(notes);
 
+        array.map((sale) => {
+            suma = suma + parseFloat(sale.precio)
+        })
+        this.setState({
+            suma: suma.toFixed(2)
+        });
 
-            }
-            else{
-                let data = snapshot.val();
-                let array=Object.values(data)
-                let suma = 0
-    
-        
-                array.map((sale) => {
-                    suma = suma + parseFloat(sale.precio)
-                })
-                console.log("ESTE ")
-                this.setState({
-                    suma: suma.toFixed(2),
-                    enventa: array.reverse(),
-                    disabled: false,
-                    autofocus: true
-                });
-
-
-
-            }
-
-          });
-
+        return notes;
     };
 
-
+    async getAllinventario() {
+        let allNotes = await dbinventario.allDocs({ include_docs: true });
+        let notes = {}
+        allNotes.rows.forEach(n => notes[n.id] = n.doc);
+        // console.log(notes)
+        return notes;
+    };
 
 
     async pagar() {
@@ -542,27 +509,22 @@ class Venta extends React.Component {
 
         let prod = [{ total: sumaF, folio: folio, tipoPago: { efectivo: sumaF, tarjeta: { monto: 0, folio: "AAA" } }, prod: enventa }]
         let ventaUnica = { _id: formatoId + "-" + folio, anio: anio, mes: mes, dia: dia, total: 0, venta: prod }
-        // dbVentas.put(ventaUnica, function callback(err, result) {
-        //     if (!err) {
-        //         console.log('Successfully added new date with sale!');
-        //     }
+        dbVentas.put(ventaUnica, function callback(err, result) {
+            if (!err) {
+                console.log('Successfully added new date with sale!');
+            }
 
-        // });
-
-        // AGREGA VENTA A FIREBASE 
-        db.ref().child("VENTAS").child(ventaUnica._id).set(ventaUnica)
-        // ELIMINA REGISTRO DE ENVENTA 
-        db.ref().child("enVenta").remove()
+        });
 
 
-        // dbenventa.destroy().then(function (response) {
-        //     console.log("BORRADA")
-        // }).catch(function (err) {
-        //     console.log(err);
-        // });
+        dbenventa.destroy().then(function (response) {
+            console.log("BORRADA")
+        }).catch(function (err) {
+            console.log(err);
+        });
 
         // this.componentDidMount();
-        // window.location.reload();
+        window.location.reload();
     };
 
 
@@ -576,13 +538,60 @@ class Venta extends React.Component {
 
 
     async handleAceptarCont() {
-
+        let ventasDiarias = this.state.ventasDiarias
+        let prod
+        let articulos=[]
+        let inventario = this.state.inventario
         // console.log(this.state.password)
         if (this.state.password === "12345") {
 
+            await ventasDiarias.some(function (elemento) {
+                articulos=elemento.venta[0].prod
+                // console.log(articulos)
+            });
 
-            db.ref().child("VENTAS").child(this.state.idBorrar).remove()
+           await articulos.some(function(articulo){
+            
+             inventario.some(function (elemento) {
+                let result2
+                if (elemento._id == articulo.codigo) {
+                    console.log("RESULT2")
+                    console.log(result2)
+                    elemento.cantidad = elemento.cantidad + 1;
+                    prod = elemento;
 
+                    dbinventario.put(prod, function callback(err, result) {
+                        if (!err) {
+                            console.log('Successfully updated inventario +1!');
+                            result2=result
+                            
+                            console.log(result)
+                        } else { console.log("ERR3") }
+                    });
+
+                    
+                    
+                   
+    
+                }
+                return 0
+            });
+
+
+
+        
+                console.log(articulo.codigo)
+                return 0
+            });
+
+
+            await dbVentas.remove(this.state.idBorrar, this.state.revBorrar, function callback(err, result) {
+                if (!err) {
+                    console.log('Successfully deleted a todo!');
+                } else {
+                    console.log("ERR1")
+                }
+            });
             this.setState({
                 showPass: false,
                 password: ""
@@ -606,9 +615,6 @@ class Venta extends React.Component {
 
 
     async agregarVenta(productoAgregar) {
-        this.setState({
-            adding:  false
-        });
 
         if (this.state.adding === false) {
             console.log("Agregando esperar")
@@ -618,9 +624,9 @@ class Venta extends React.Component {
             let prodAct = productoAgregar;
             prodAct.cantidad = prodAct.cantidad - 1;
             let agregarVenta = {
-                _id: new Date().toISOString().split('.').join(''),
-                idInv: productoAgregar.id,
-                // revInv: productoAgregar._rev,
+                _id: new Date().toISOString(),
+                idInv: productoAgregar._id,
+                revInv: productoAgregar._rev,
                 producto: productoAgregar.nombre,
                 codigo: productoAgregar.id,
                 cantidad: 1,
@@ -631,24 +637,31 @@ class Venta extends React.Component {
                 // diacierre: this.state.folios[0].diacierre,
                 // anio: this.state.folios[0].anioCierre
             }
-            // await dbenventa.put(agregarVenta, function callback(err, result) {
-            //     if (!err) {
-            //         console.log('Successfully posted a todo!');
-            //     }
-            // });
-            // QUITA LOS PUNTOS DEL ID
-            let idN=agregarVenta._id
-            
-            // console.log(idN)
+            await dbenventa.put(agregarVenta, function callback(err, result) {
+                if (!err) {
+                    console.log('Successfully posted a todo!');
+                }
 
-            await db.ref().child("enVenta").child(idN).set(agregarVenta)
-            await db.ref().child("INVENTARIO").child(productoAgregar.id).set(productoAgregar)
-
-            // await dbinventario.put(prodAct);
-            this.setState({
-                adding:  true
             });
-  
+
+
+            await dbinventario.put(prodAct);
+
+
+            await this.getAllenventa().then(data => {
+                let array = Object.values(data);
+                this.setState({
+                    enventa: array.reverse()
+                });
+
+            })
+            await this.getAllinventario().then(data => {
+                let array = Object.values(data);
+                this.setState({
+                    inventario: array
+                });
+
+            })
         }
 
 
@@ -687,19 +700,22 @@ class Venta extends React.Component {
 
         let prod = [{ total: sumaF, folio: folioV, tipoPago: { efectivo: 0, tarjeta: { monto: sumaF, folio: folio } }, prod: enventa }]
         let ventaUnica = { _id: formatoId + "-" + folioV, anio: anio, mes: mes, dia: dia, total: 0, venta: prod }
-        // dbVentas.put(ventaUnica, function callback(err, result) {
-        //     if (!err) {
-        //         console.log('Successfully posted a todo!');
-        //     }
+        dbVentas.put(ventaUnica, function callback(err, result) {
+            if (!err) {
+                console.log('Successfully posted a todo!');
+            }
 
-        // });
+        });
 
-        db.ref().child("VENTAS").child(ventaUnica._id).set(ventaUnica)
 
-        db.ref().child("enVenta").remove()
+        dbenventa.destroy().then(function (response) {
+            console.log("BORRADA")
+        }).catch(function (err) {
+            console.log(err);
+        });
 
         // this.componentDidMount();
-        // window.location.reload();
+        window.location.reload();
 
 
     }
@@ -752,46 +768,34 @@ class Venta extends React.Component {
     };
 
     async handleDel(a, producto) {
-        // console.log(producto)
-        // let inventario = this.state.inventario
-        // let prod
-        // await dbenventa.remove(producto._id, producto._rev, function callback(err, result) {
-        //     if (!err) {
-        //         console.log('Successfully deleted a todo!');
-        //     } else {
-        //         console.log("ERR1")
-        //     }
-        // });
-        db.ref().child("enVenta").child(producto._id).remove()
-        let sumar1=db.ref().child("INVENTARIO").child(producto.idInv)
-        sumar1.once('value',(snapshot)=>{
-            let cantidad=snapshot.val().cantidad +1
-            db.ref().child("INVENTARIO").child(producto.idInv).update({cantidad:cantidad})
-        })
-        // console.log(sumar1.val())
-        // sumar1.cantidad=sumar1.cantidad+1
-        // console.log(db.ref().child("INVENTARIO").child(producto.idInv))
+        let inventario = this.state.inventario
+        let prod
+        await dbenventa.remove(producto._id, producto._rev, function callback(err, result) {
+            if (!err) {
+                console.log('Successfully deleted a todo!');
+            } else {
+                console.log("ERR1")
+            }
+        });
+        await inventario.some(function (elemento) {
+            if (elemento._id == producto.idInv) {
+                console.log(elemento)
+                elemento.cantidad = elemento.cantidad + 1;
+                prod = elemento;
+                return 0
 
-        
-        // await inventario.some(function (elemento) {
-        //     if (elemento._id == producto.idInv) {
-        //         console.log(elemento)
-        //         elemento.cantidad = elemento.cantidad + 1;
-        //         prod = elemento;
-        //         return 0
-
-        //     }
-        // });
-        // await dbinventario.put(prod, function callback(err, result) {
-        //     if (!err) {
-        //         console.log('Successfully updated inventario +1!');
-        //     } else { console.log("ERR3") }
-        // });
+            }
+        });
+        await dbinventario.put(prod, function callback(err, result) {
+            if (!err) {
+                console.log('Successfully updated inventario +1!');
+            } else { console.log("ERR3") }
+        });
 
         // console.log(sumproduct)     
         // this.componentDidMount();
 
-        // window.location.reload();
+        window.location.reload();
     };
 
 
@@ -808,9 +812,8 @@ class Venta extends React.Component {
             let productoAgregar = "";
 
             for (let i = 0; i < inventario.length; i++) {
-                // console.log(inventario)
                 //REVISA SI EXISTE
-                if (inventario[i].id === productoKey) {
+                if (inventario[i]._id === productoKey) {
                     productoAgregar = inventario[i];
                     existe = true;
                     // console.log(productoAgregar)
@@ -890,7 +893,7 @@ class Venta extends React.Component {
                                                         <TableRow key={index}>
                                                             <TableCell align="right">{index + 1}</TableCell>
                                                             <TableCell align="right">{producto.cantidad}</TableCell>
-                                                            <TableCell align="right">{producto.producto}<br /></TableCell>
+                                                            <TableCell align="right">{producto.producto}<br />#{producto.codigo}</TableCell>
                                                             <TableCell align="right">${producto.precio}</TableCell>
                                                             <TableCell align="right">${producto.precio * producto.cantidad}</TableCell>
                                                             <TableCell align="right"><button onClick={(e) => { this.handleDel(e, producto) }}>Eiminar</button></TableCell>
@@ -974,7 +977,7 @@ class Venta extends React.Component {
                                                             <TableCell align="center">${venta.venta[0].tipoPago.tarjeta.monto}</TableCell>
                                                             <TableCell align="center">${venta.venta[0].total}</TableCell>
                                                             <TableCell align="center"><PrintIcon onClick={(e) => { this.imprimir(venta._id) }} /></TableCell>
-                                                            <TableCell align="center"><HighlightOffIcon onClick={(e) => { this.borrarVenta(venta._id) }} /></TableCell>
+                                                            <TableCell align="center"><HighlightOffIcon onClick={(e) => { this.borrarVenta(venta._id, venta._rev) }} /></TableCell>
                                                             {/* <TableCell align="right"><button onClick={(e) => {console.log(venta.venta[0].folio) }}>Detalle</button></TableCell> */}
 
                                                         </TableRow>

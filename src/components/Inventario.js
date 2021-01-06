@@ -3,31 +3,62 @@ import '../styles/BarraDerecha.css';
 import { makeStyles } from '@material-ui/core/styles';
 // import Button from '@material-ui/core/Button';
 import Grid from '@material-ui/core/Grid';
-import GridList from '@material-ui/core/GridList';
+// import GridList from '@material-ui/core/GridList';
 import List from '@material-ui/core/List';
 // import ButtonGroup from '@material-ui/core/ButtonGroup';
 // import { fontSize } from '@material-ui/system';
-import Typography from '@material-ui/core/Typography';
+// import Typography from '@material-ui/core/Typography';
 // import Container from '@material-ui/core/Container';
-import CssBaseline from '@material-ui/core/CssBaseline';
+// import CssBaseline from '@material-ui/core/CssBaseline';
 import TextField from '@material-ui/core/TextField';
+// import InputLabel from '@material-ui/core/InputLabel';
 import FormControl from '@material-ui/core/FormControl'
 import Table from '@material-ui/core/Table';
+import Select from '@material-ui/core/Select';
+import MenuItem from '@material-ui/core/MenuItem';
 import TableBody from '@material-ui/core/TableBody';
 import TableCell from '@material-ui/core/TableCell';
 import TableHead from '@material-ui/core/TableHead';
 import TableRow from '@material-ui/core/TableRow';
 import Paper from '@material-ui/core/Paper';
-import Input from '@material-ui/core/Input';
+// import Input from '@material-ui/core/Input';p
 import Dialog from '@material-ui/core/Dialog';
 import DialogActions from '@material-ui/core/DialogActions';
 import DialogContent from '@material-ui/core/DialogContent';
 import DialogContentText from '@material-ui/core/DialogContentText';
 import DialogTitle from '@material-ui/core/DialogTitle';
 import Button from '@material-ui/core/Button';
+import ButtonGroup from '@material-ui/core/ButtonGroup';
+import exportFromJSON from 'export-from-json'
+// FIREBASE
+import firebase from 'firebase'
+var firebaseConfig = {
+    apiKey: "AIzaSyAV1RFAEI358lpXv_7d81xb0KdRo4f-TEk",
+    authDomain: "tienda-aa5d3.firebaseapp.com",
+    databaseURL: "https://tienda-aa5d3.firebaseio.com",
+    projectId: "tienda-aa5d3",
+    storageBucket: "tienda-aa5d3.appspot.com",
+    messagingSenderId: "898170837567",
+    appId: "1:898170837567:web:346072753502ad054cf68a",
+    measurementId: "G-WX90RTSG4S"
+  };
+  // Initialize Firebase
+if (!firebase.apps.length) {
+    try {
+     firebase.initializeApp(firebaseConfig)
+    } catch (err) {
+        console.log(err)
+    }
+}
+// db = firebase.firestore();
+// firebase.initializeApp(firebaseConfig);
+let db=firebase.database()
+
+
+
 // import CloseIcon from '@material-ui/icons/Close';
-var PouchDB = require('pouchdb').default;
-var dbinventario = new PouchDB('http://localhost:5984/inventario');
+// var PouchDB = require('pouchdb').default;
+// var dbinventario = new PouchDB('http://localhost:5984/inventario');
 
 
 
@@ -57,11 +88,12 @@ class Inventario extends React.Component {
         this.state = {
             productos: [],
             inventario: [],
+            tablaInventario:[],
             inputSell: "",
             codigo: "",
             nombreProducto: "",
             descripcion: "",
-            cantidadDisponible: "",
+            cantidadDisponible: 0,
             cantidadAgregar: 0,
             precioUnidad: "",
             activeSearch: false,
@@ -77,35 +109,54 @@ class Inventario extends React.Component {
             helperDescripcion: "",
             helperPrecio: "",
             helperProducto: "",
+            helperTipo: "",
             errorCantidad: false,
             errorDescripcion: false,
             errorPrecio: false,
-            errorProducto: false
+            errorProducto: false,
+            errorTipo: false,
+            tipoProducto: "Nada",
+            inputNombre:""
         };
 
         this._onKeyPress = this._onKeyPress.bind(this);
         this._onChange = this._onChange.bind(this);
+        this._onChangeNombre = this._onChangeNombre.bind(this);
         this.handleClose = this.handleClose.bind(this);
         this.handleModifica = this.handleModifica.bind(this);
         this.handleShow = this.handleShow.bind(this);
         this.handleCancel = this.handleCancel.bind(this);
         this.handleNuevo = this.handleNuevo.bind(this);
-        this.getAllNotes = this.getAllNotes.bind(this);
         this.handleGuardarCambios = this.handleGuardarCambios.bind(this);
         this.handleClickTable = this.handleClickTable.bind(this);
         this.buscar = this.buscar.bind(this);
+        this.putProducto = this.putProducto.bind(this);
+        this.imprimir = this.imprimir.bind(this);
+
     }
 
     componentDidMount() {
 
-        this.getAllNotes().then(data => {
-            let array = Object.values(data);
-            this.setState({
-                inventario: array
-            });
-            console.log(this.state.inventario);
+        let inventarioFB=db.ref().child("INVENTARIO")
+        inventarioFB.on('value', (snapshot) =>{
+            // console.log(snapshot.value)
+            if(snapshot.val()==null){
+                this.setState({
+                    inventario: [],
+                    tablaInventario: []
+                });
+            }else{
+                // console.log(snapshot.value)
+                const data = snapshot.val();
+                let array=Object.values(data)
+                this.setState({
+                    inventario: array,
+                    tablaInventario: array
+                });
 
-        })
+            }
+
+          });
     }
 
     _onKeyPress(event) {
@@ -133,7 +184,41 @@ class Inventario extends React.Component {
         this.setState({
             [name]: value
         });
+
+
     };
+
+    _onChangeNombre = event => {
+        const { name, value } = event.target;
+        let nuevaTabla=[]
+        this.setState({
+            [name]: value
+        }, () => {
+            var iNombre= this.state.inputNombre;
+            
+            this.state.inventario.map(function (producto) {
+        
+                var str = producto.nombre.toLowerCase(); 
+                // console.log(this.state.inventario)
+                var n = str.search(iNombre.toLowerCase());
+    
+                if(n>=0){
+                    nuevaTabla.push(producto)
+                }
+                // console.log(nuevaTabla)
+             
+                })
+    
+                this.setState({
+                    tablaInventario: nuevaTabla
+                }
+                )
+
+        });
+
+    };
+
+
 
     handleClose = event => {
         this.setState({
@@ -175,7 +260,15 @@ class Inventario extends React.Component {
 
     };
 
-    handleClickTable (event) {
+    imprimir = () => {
+        const data = this.state.inventario
+        const fileName = 'Reporte'
+        const exportType = 'xls'
+        exportFromJSON({ data, fileName, exportType })
+
+    };
+
+    handleClickTable(event) {
         this.setState({
             codigo: "",
             nombreProducto: "",
@@ -210,31 +303,37 @@ class Inventario extends React.Component {
             edit: false,
             editAgregar: false,
             activeSearch: true,
-            codigo: producto._id,
+            codigo: producto.id,
             nombreProducto: producto.nombre,
             descripcion: producto.descripcion,
             cantidadDisponible: producto.cantidad,
             precioUnidad: producto.precio,
-            rev: producto._rev
+            rev: producto._rev,
+            tipoProducto: producto.tipoProducto
         });
     };
-    handleGuardarCambios() {
+
+    async handleGuardarCambios() {
         this.setState({
             errorProducto: false,
             helperProducto: "",
             errorCantidad: false,
             helperCantidad: "",
             errorPrecio: false,
-            helperPrecio: ""
+            helperPrecio: "",
+            inputSell: "",
+            inputNombre:""
+            // tablaInventario: this.state.inventario
+
         })
-        if (this.state.nombreProducto == "" || this.state.cantidadDisponible == "" || this.state.precioUnidad == "") {
+        if (this.state.nombreProducto == "" || (this.state.cantidadDisponible == "" && this.state.cantidadDisponible != 0) || this.state.precioUnidad == "" || this.state.tipoProducto == "Nada") {
             if (this.state.nombreProducto == "") {
                 this.setState({
                     errorProducto: true,
                     helperProducto: "Campo Requerido"
                 })
             }
-            if (this.state.cantidadDisponible == "") {
+            if (this.state.cantidadDisponible == "" && this.state.cantidadDisponible != 0) {
                 this.setState({
                     errorCantidad: true,
                     helperCantidad: "Campo Requerido"
@@ -244,6 +343,13 @@ class Inventario extends React.Component {
                 this.setState({
                     errorPrecio: true,
                     helperPrecio: "Campo Requerido"
+                })
+            }
+
+            if (this.state.tipoProducto == "Nada") {
+                this.setState({
+                    errorTipo: true,
+                    helperTipo: "Campo Requerido"
                 })
             }
 
@@ -259,85 +365,77 @@ class Inventario extends React.Component {
 
             let doc = {
                 id: this.state.codigo,
-                _id: this.state.codigo,
                 nombre: this.state.nombreProducto,
                 descripcion: this.state.descripcion,
                 cantidad: parseInt(suma) + parseInt(this.state.cantidadDisponible),
                 precio: this.state.precioUnidad,
-                _rev: this.state.rev,
+                tipoProducto: this.state.tipoProducto,
             }
-            dbinventario.put(doc);
 
-            this.setState({
-                edit: true,
-                activeSearch: false,
-                codigo: "",
-                nombreProducto: "",
-                descripcion: "",
-                cantidadDisponible: "",
-                precioUnidad: "",
-                cantidadAgregar: ""
-            });
-
-            this.getAllNotes().then(data => {
-                let array = Object.values(data);
+            await this.putProducto(doc).then(data => {
                 this.setState({
-                    inventario: array
+                    edit: true,
+                    activeSearch: false,
+                    codigo: "",
+                    nombreProducto: "",
+                    descripcion: "",
+                    cantidadDisponible: "",
+                    precioUnidad: "",
+                    cantidadAgregar: "",
+                    nuevo: false,
+                    editCantidad: true,
+                    editAgregar: true
                 });
-                console.log(this.state.inventario);
+
+
+
+
+
 
             })
-            window.location.reload();
         } else {
 
             let doc = {
                 id: this.state.inputSell,
-                _id: this.state.codigo,
                 nombre: this.state.nombreProducto,
                 descripcion: this.state.descripcion,
                 cantidad: this.state.cantidadDisponible,
-                precio: this.state.precioUnidad
+                precio: this.state.precioUnidad,
+                tipoProducto: this.state.tipoProducto
             }
-            dbinventario.put(doc);
 
-            this.setState({
-                edit: true,
-                activeSearch: false,
-                codigo: "",
-                nombreProducto: "",
-                descripcion: "",
-                cantidadDisponible: "",
-                precioUnidad: "",
-                cantidadAgregar: "",
-                nuevo: false
-            });
-
-            this.getAllNotes().then(data => {
-                let array = Object.values(data);
+            await this.putProducto(doc).then(data => {
                 this.setState({
-                    inventario: array
+                    edit: true,
+                    activeSearch: false,
+                    codigo: "",
+                    nombreProducto: "",
+                    descripcion: "",
+                    cantidadDisponible: "",
+                    precioUnidad: "",
+                    cantidadAgregar: "",
+                    nuevo: false,
+                    editCantidad: true,
+                    editAgregar: true
                 });
-                console.log(this.state.inventario);
+
+
+
 
             })
-            window.location.reload();
-
-
-
-
-
 
 
         }
+
+        
     };
 
 
-    async getAllNotes() {
-        let allNotes = await dbinventario.allDocs({ include_docs: true });
-        let notes = {}
-        allNotes.rows.forEach(n => notes[n.id] = n.doc);
 
-        return notes;
+    async putProducto(doc) {
+        await db.ref().child("INVENTARIO").child(doc.id).set(doc)
+        return doc;
+
     };
 
     async buscar(codigo) {
@@ -348,7 +446,7 @@ class Inventario extends React.Component {
 
 
         this.state.inventario.map(function (ok) {
-            if (ok._id == codigo) {
+            if (ok.id == codigo) {
                 let productoEditar = ok;
 
 
@@ -378,10 +476,35 @@ class Inventario extends React.Component {
                     <Grid style={{ backgroundColor: '#dddddd', height: '100%' }} >
 
                         <FormControl fullWidth noValidate autoComplete="off">
-                            <TextField disabled={this.state.activeSearch} name={"inputSell"} onChange={this._onChange} onKeyPress={this._onKeyPress} id="outlined-basic" variant="outlined" value={this.state.inputSell} style={{ width: "100%", marginTop: "50px" }} />
+
+                            <TextField
+                                disabled={this.state.activeSearch}
+                                name={"inputSell"}
+                                onChange={this._onChange}
+                                onKeyPress={this._onKeyPress}
+                                id="outlined-basic" variant="outlined"
+                                value={this.state.inputSell}
+                                style={{ width: "100%", marginTop: "50px" }}
+                                label="Buscar por Codigo (LECTOR DE BARRAS)" 
+                                size="small"
+                                />
+                                
+
+                            <TextField
+                                disabled={this.state.activeSearch}
+                                name={"inputNombre"}
+                                onChange={this._onChangeNombre}
+                                // onKeyPress={this._onKeyPress}
+                                id="outlined-basic"
+                                variant="outlined"
+                                value={this.state.inputNombre}
+                                style={{ width: "100%", marginTop: "7px" }}
+                                label="Buscar por Nombre (TECLADO)"
+                                size="small" />
+
                             <List>
 
-                                <Paper style={{ overflow: 'auto', height: '55vh', marginTop: "30px" }}>
+                                <Paper style={{ overflow: 'auto', height: '55vh', marginTop: "5px" }}>
 
                                     <div >
 
@@ -392,21 +515,24 @@ class Inventario extends React.Component {
                                                     <TableCell align="center">Nombre</TableCell>
                                                     {/* <TableCell align="right">Descripcion</TableCell> */}
                                                     <TableCell align="center">Cantidad Disponible</TableCell>
+                                                    <TableCell align="center">Tipo</TableCell>
                                                     <TableCell align="center">Precio Unidad</TableCell>
                                                 </TableRow>
                                             </TableHead>
                                             <TableBody>
 
-                                                {this.state.inventario.map((producto, index, key) => {
+                                                {this.state.tablaInventario.map((producto, index, key) => {
 
 
                                                     return (
-                                                        <TableRow hover id={producto._id} onClick={this.handleClickTable} key={index}>
-                                                            <TableCell id={producto._id} align="center">{producto._id}</TableCell>
-                                                            <TableCell id={producto._id} align="center">{producto.nombre}</TableCell>
+                                                        <TableRow hover id={producto.id} onClick={this.handleClickTable} key={index}>
+                                                            <TableCell id={producto.id} align="center">{producto.id}</TableCell>
+                                                            <TableCell id={producto.id} align="center">{producto.nombre}</TableCell>
                                                             {/* <TableCell align="right">{producto.descripción}</TableCell> */}
-                                                            <TableCell id={producto._id} align="center">{producto.cantidad}</TableCell>
-                                                            <TableCell id={producto._id} align="center">{producto.precio}</TableCell>
+                                                            <TableCell id={producto.id} align="center">{producto.cantidad}</TableCell>
+                                                            <TableCell id={producto.id} align="center">{producto.tipoProducto}</TableCell>
+                                                            <TableCell id={producto.id} align="center">{producto.precio}</TableCell>
+
                                                         </TableRow>
 
                                                     )
@@ -420,6 +546,13 @@ class Inventario extends React.Component {
                             </List>
 
                         </FormControl>
+
+                        <ButtonGroup fullWidth color="primary" aria-label="full width outlined button group">
+
+
+                            <Button variant="contained" color="primary" onClick={(e) => this.imprimir()}>Exportar Excel</Button >
+
+                        </ButtonGroup>
 
                     </Grid>
 
@@ -453,7 +586,29 @@ class Inventario extends React.Component {
                         onChange={this._onChange}
                         variant="outlined"
                         value={this.state.nombreProducto}
-                        style={{ width: "90%", marginTop: "50px" }} />
+                        style={{ width: "40%", marginTop: "50px" }} />
+
+                    <FormControl variant="filled">
+                        <Select
+                            error={this.state.errorTipo}
+                            helperText={this.state.helperTipo}
+                            labelId="demo-simple-select-filled-label"
+                            id="demo-simple-select-filled"
+                            name="tipoProducto"
+                            label="Tipo Producto"
+                            value={this.state.tipoProducto}
+                            onChange={this._onChange}
+                            style={{ width: "100%", marginTop: "50px" }}
+                            disabled={this.state.edit}
+
+                        >   <MenuItem disabled value="Nada">
+                                <em>Tipo de Producto</em>
+                            </MenuItem>
+                            <MenuItem value="Medicamento">Medicamento</MenuItem>
+                            <MenuItem value="Procedimiento">Procedimiento</MenuItem>
+                            <MenuItem value="Consulta">Consulta</MenuItem>
+                        </Select>
+                    </FormControl>
 
                     <TextField
                         error={this.state.errorDescripcion}
@@ -498,6 +653,8 @@ class Inventario extends React.Component {
                         variant="outlined"
                         value={this.state.precioUnidad}
                         style={{ width: "90%", marginTop: "50px" }} />
+
+
 
                     <br></br><br></br><br></br>
 
