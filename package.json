@@ -87,7 +87,7 @@
   "license": "CC0-1.0",
   "main": "public/electron.js",
   "devDependencies": {
-    "electron": "^7.1.2",
+    "electron": "^18.3.7",
     "electron-builder": "^21.2.0",
     "electron-packager": "^14.1.0"
   }
